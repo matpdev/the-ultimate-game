@@ -24,25 +24,46 @@ class MyGame extends Phaser.Scene {
    */
   ball;
   group;
+  /**
+   * @type {Phaser.GameObjects.Rectangle}
+   */
+  boxPointP1;
+  /**
+   * @type {Phaser.GameObjects.Rectangle}
+   */
+  boxPointP2;
+  /**
+   * @type {Phaser.GameObjects.Text}
+   */
+  textPoints;
 
-  preload() {
-    //  This is an example of a bundled image:
-    this.load.image("logo", logoImg);
+  points = {
+    p1: getCookie("p1") ?? 0,
+    p2: getCookie("p2") ?? 0,
+  };
 
-    //  This is an example of loading a static image from the public folder:
-    this.load.image("background", "assets/bg.jpg");
-    this.load.spritesheet(
-      "player",
-      "assets/naruto_sprite_sheet_by_joshmedly_dbm5pgj-fullview.png",
-      {
-        frameHeight: 100,
-        frameWidth: 100,
-        spacing: 10,
-      }
-    );
-  }
+  preload() {}
 
   create() {
+    this.textPoints = this.add.text(
+      window.innerWidth / 2 - 100,
+      window.innerHeight * 0.1,
+      `${this.points.p1} - ${this.points.p2}`,
+      {
+        fontSize: 50,
+      }
+    );
+    this.start();
+  }
+
+  addPoints(val, p) {
+    this.points[p] = val;
+    this.textPoints.text = `${this.points.p1} - ${this.points.p2}`;
+
+    setCookie(p, val, 1);
+  }
+
+  start() {
     this.player = this.add.rectangle(
       window.innerWidth * 0.05,
       window.innerHeight / 2,
@@ -67,6 +88,19 @@ class MyGame extends Phaser.Scene {
       0xffffff
     );
 
+    this.boxPointP1 = new Phaser.Geom.Rectangle(
+      0,
+      window.innerHeight / 2,
+      50,
+      window.innerHeight
+    );
+    this.boxPointP2 = new Phaser.Geom.Rectangle(
+      window.innerWidth,
+      window.innerHeight / 2,
+      50,
+      window.innerHeight
+    );
+
     this.cursors = this.input.keyboard.createCursorKeys();
     this.cursorsp2 = this.input.keyboard.addKeys("W,S");
 
@@ -89,8 +123,9 @@ class MyGame extends Phaser.Scene {
 
     this.player.body.immovable = true;
 
-    this.physics.add.collider(this.player, this.ball);
-    this.physics.add.collider(this.player2, this.ball);
+    this.physics.add.collider([this.player, this.player2], this.ball);
+    this.physics.add.collider(this.boxPointP1, this.ball);
+    this.physics.add.collider(this.boxPointP2, this.ball);
 
     this.physics.world.on("collide", (g1, g2, b1, b2) => {
       const distance = new Phaser.Math.Vector2();
@@ -110,6 +145,21 @@ class MyGame extends Phaser.Scene {
   update() {
     this.player?.body.setVelocity(0);
 
+    /**
+     * @type {Phaser.Geom.Rectangle}
+     */
+    const intersection = Phaser.Geom.Intersects.GetRectangleIntersection(
+      this.boxPointP1,
+      this.ball
+    );
+
+    const intersection2 = Phaser.Geom.Intersects.GetRectangleIntersection(
+      this.boxPointP2,
+      this.ball
+    );
+
+    this.verifyOverlap(intersection);
+
     if (this.cursors.up.isDown) {
       this.player?.body.setVelocityY(-400);
     } else if (this.cursors.down.isDown) {
@@ -122,6 +172,25 @@ class MyGame extends Phaser.Scene {
       this.player2?.body.setVelocityY(-400);
     } else if (this.cursorsp2.S.isDown) {
       this.player2?.body.setVelocityY(400);
+    }
+  }
+
+  /**
+   * @param {Phaser.Geom.Rectangle} intersection
+   */
+
+  verifyOverlap(intersection) {
+    let initialVal = this.points;
+
+    if (intersection.x > 0 && intersection.x <= 50) {
+      this.addPoints(this.points.p1 + 1, "p1");
+      this.scene.restart();
+    } else if (
+      intersection.x >= window.innerWidth - 50 &&
+      intersection.x <= window.innerWidth
+    ) {
+      this.addPoints(this.points.p1 + 2, "p2");
+      this.scene.restart();
     }
   }
 }
@@ -144,3 +213,24 @@ const game = new Phaser.Game({
   },
   fullscreenTarget: true,
 });
+
+function setCookie(name, value, days) {
+  var expires = "";
+  if (days) {
+    var date = new Date();
+    date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+    expires = "; expires=" + date.toUTCString();
+  }
+  document.cookie = name + "=" + (value || "") + expires + "; path=/";
+}
+
+function getCookie(name) {
+  var nameEQ = name + "=";
+  var ca = document.cookie.split(";");
+  for (var i = 0; i < ca.length; i++) {
+    var c = ca[i];
+    while (c.charAt(0) == " ") c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+}
